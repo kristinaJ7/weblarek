@@ -44,3 +44,20 @@ export interface IApiResponse {
 export interface IProductsResponse extends IApiResponse {
   items: IProduct[];
 }
+
+
+
+
+
+ export interface CartUpdateData {
+  items: IProduct[];
+  total: number;
+  count: number;
+}
+
+
+export interface IContactsData {
+  phone: string;
+  email: string;
+  
+}
