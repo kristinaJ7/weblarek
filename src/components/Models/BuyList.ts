@@ -1,10 +1,9 @@
-
 import { IProduct } from "../../types";
 import { IEvents } from "../base/Events"; // Импорт IEvents
 
 export class BuyList {
   private cardListItem: IProduct[] = [];
-  private events: IEvents; // Новое поле для EventEmitter
+  private events: IEvents;
 
   // Конструктор с передачей EventEmitter
   constructor(events: IEvents) {
@@ -21,7 +20,7 @@ export class BuyList {
     this.events.emit("basket:itemAdded", item);
     this.events.emit("basket:updated", {
       total: this.getTotalPrice(),
-      count: this.getItemCount()
+      count: this.getItemCount(),
     });
   }
 
@@ -31,8 +30,10 @@ export class BuyList {
     this.events.emit("basket:itemRemoved", { id });
     this.events.emit("basket:updated", {
       total: this.getTotalPrice(),
-      count: this.getItemCount()
+      count: this.getItemCount(),
     });
+    // Дополнительно эмитим cart:updated для совместимости
+    this.events.emit("cart:updated");
   }
 
   clear(): void {
@@ -41,10 +42,9 @@ export class BuyList {
     this.events.emit("basket:cleared");
     this.events.emit("basket:updated", {
       total: 0,
-      count: 0
+      count: 0,
     });
   }
-
   getTotalPrice(): number {
     return this.cardListItem.reduce(
       (total, item) => total + (item.price ?? 0),

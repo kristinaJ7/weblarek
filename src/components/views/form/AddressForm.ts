@@ -3,69 +3,70 @@
 import { ensureElement, ensureAllElements } from "../../../utils/utils";
 import { IEvents } from "../../base/Events";
 import { OrderForm } from "./MainForm";
+import { TPayment } from "../../../types";
 
-// Тип данных формы
 interface IAddressData {
-  paymentMethod: string | null;
+  paymentMethod: TPayment | null;
   address: string;
 }
 
 export class FormAddress extends OrderForm<IAddressData> {
-  protected formPaymentButtonElement: HTMLButtonElement[];
-  protected formAddressInputElement: HTMLInputElement;
+  protected formPaymentButtonElement: HTMLButtonElement[] = [];
+  protected formAddressInputElement: HTMLInputElement | null = null;
 
   constructor(protected events: IEvents) {
     super(events, "#order", "order:submit");
 
-    this.formPaymentButtonElement = ensureAllElements<HTMLButtonElement>(
-      ".order__buttons button",
-      this.container
-    );
-    this.formAddressInputElement = ensureElement<HTMLInputElement>(
-      'input[name="address"]',
-      this.container
-    );
+    try {
+      this.formPaymentButtonElement = ensureAllElements<HTMLButtonElement>(
+        ".order__buttons button",
+        this.container
+      );
+      this.formAddressInputElement = ensureElement<HTMLInputElement>(
+        'input[name="address"]',
+        this.container
+      );
+    } catch (error) {
+      console.error("Ошибка инициализации DOM-элементов:", error);
+    }
 
-    // Слушатели на кнопки оплаты
+    this.initEventListeners();
+  }
+
+  private initEventListeners(): void {
     this.formPaymentButtonElement.forEach((button) => {
       button.addEventListener("click", () => {
-        this.events.emit("payment:select", { method: button.name });
-        this.setPaymentSelected(button.name); // Обновляем UI и валидацию
+        this.setPaymentSelected(button.name as TPayment);
       });
     });
 
-    // Слушатель на ввод адреса
-    this.formAddressInputElement.addEventListener("input", () => {
-      this.events.emit("address:change", {
-        value: this.formAddressInputElement.value,
+    if (this.formAddressInputElement) {
+      const input = this.formAddressInputElement;
+      input.addEventListener("input", () => {
+        this.emitAddressChange("address", input.value.trim());
       });
-      this.validateAndUpdate(); // Перевалидируем при каждом вводе
-    });
+    } else {
+      console.warn("[FormAddress] Input адреса не найден");
+    }
 
-    // Обработчик отправки формы
     this.container.addEventListener("submit", (event: Event) => {
       event.preventDefault();
-
-      const data = this.getFormData();
-      const errors = this.validate(data);
-
-      if (errors.length === 0) {
-        this.clearErrors();
-        this.events.emit(this.submitEvent, data); // order:submit
-        this.events.emit("order:address:submitted", data); // Сигнал для перехода к контактам
-        this.setSubmitEnabled(true);
-      } else {
-        this.setErrors(errors.join("\n"));
-        this.setSubmitEnabled(false);
-      }
+      this.handleSubmit();
     });
   }
 
-  // Обязательная реализация из AbstractFormOrder
+  private emitAddressChange(
+    field: keyof IAddressData,
+    value: string | TPayment
+  ): void {
+    this.events.emit("address:field:change", { field, value });
+    this.validateAndUpdate();
+  }
+
   protected getFormData(): IAddressData {
     return {
       paymentMethod: this.getSelectedPaymentMethod(),
-      address: this.formAddressInputElement.value.trim(),
+      address: this.formAddressInputElement?.value.trim() || "",
     };
   }
 
@@ -76,19 +77,19 @@ export class FormAddress extends OrderForm<IAddressData> {
     return errors;
   }
 
-  // Вспомогательные методы
-  private getSelectedPaymentMethod(): string | null {
+  private getSelectedPaymentMethod(): TPayment | null {
     const activeButton = this.formPaymentButtonElement.find((btn) =>
       btn.classList.contains("button_alt-active")
     );
-    return activeButton ? activeButton.name : null;
+    const method = activeButton?.name;
+    return method === "card" || method === "cash" ? method : null;
   }
 
-  setPaymentSelected(method: string): void {
+  setPaymentSelected(method: TPayment): void {
     this.formPaymentButtonElement.forEach((button) => {
       button.classList.toggle("button_alt-active", button.name === method);
     });
-    this.validateAndUpdate(); // Запускаем валидацию после выбора метода
+    this.emitAddressChange("paymentMethod", method);
   }
 
   private validateAndUpdate(): void {
@@ -97,6 +98,21 @@ export class FormAddress extends OrderForm<IAddressData> {
 
     if (errors.length === 0) {
       this.clearErrors();
+      this.setSubmitEnabled(true);
+    } else {
+      this.setErrors(errors.join("\n"));
+      this.setSubmitEnabled(false);
+    }
+  }
+
+  private handleSubmit(): void {
+    const data = this.getFormData();
+    const errors = this.validate(data);
+
+    if (errors.length === 0) {
+      this.clearErrors();
+      this.events.emit(this.submitEvent, data);
+      this.events.emit("order:address:submitted", data);
       this.setSubmitEnabled(true);
     } else {
       this.setErrors(errors.join("\n"));

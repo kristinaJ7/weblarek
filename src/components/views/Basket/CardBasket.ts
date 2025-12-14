@@ -1,4 +1,3 @@
-//для карточки товара в корзине
 import { ensureElement } from "../../../utils/utils";
 import { Component } from "../../base/Component";
 import { IEvents } from "../../base/Events";
@@ -14,7 +13,17 @@ export class BasketProduct extends Component<IProduct> {
   protected priceElement: HTMLElement;
   protected deleteButton: HTMLButtonElement;
 
-  private productId: string;
+  actions: BasketCard;
+
+  private handleDelete = () => {
+    console.log("BasketProduct: обработчик клика вызван");
+    const productId = this.container.dataset.id;
+    if (productId) {
+      this.actions.onClickDelete(productId);
+    } else {
+      console.error("BasketProduct: data-id не найден", this.container);
+    }
+  };
 
   constructor(
     protected events: IEvents,
@@ -23,44 +32,45 @@ export class BasketProduct extends Component<IProduct> {
   ) {
     super(container);
 
-    this.indexElement = ensureElement<HTMLElement>(
-      ".basket__item-index",
-      this.container
-    );
-    this.titleElement = ensureElement<HTMLElement>(
-      ".card__title",
-      this.container
-    );
-    this.priceElement = ensureElement<HTMLElement>(
-      ".card__price",
-      this.container
-    );
-    this.deleteButton = ensureElement<HTMLButtonElement>(
-      ".basket__item-delete",
-      this.container
-    );
+    this.actions = actions;
 
-    // Сохраняем ID товара
-    this.productId = this.container.dataset.id || "";
+    try {
+      this.indexElement = ensureElement(".basket__item-index", this.container);
+      this.titleElement = ensureElement(".card__title", this.container);
+      this.priceElement = ensureElement(".card__price", this.container);
+      this.deleteButton = ensureElement<HTMLButtonElement>(
+        ".basket__item-delete",
+        this.container
+      );
+    } catch (error) {
+      console.error("Ошибка при инициализации BasketProduct:", error);
+      throw error;
+    }
 
-    // Обработчик удаления
-    this.deleteButton.addEventListener("click", () => {
-      actions.onClickDelete(this.productId);
-    });
+    this.deleteButton.addEventListener("click", this.handleDelete);
   }
 
-  // Устанавливаем порядковый номер
   set index(value: number) {
     this.indexElement.textContent = value.toString();
   }
 
-  // Устанавливаем название товара
   set title(value: string) {
     this.titleElement.textContent = value;
   }
 
-  // Устанавливаем цену
-  set price(value: number) {
-    this.priceElement.textContent = `${value} синапсов`;
+  set price(value: number | null) {
+    if (value === null) {
+      this.priceElement.textContent = "—"; // Или "Нет цены", "Бесплатно" и т.п.
+    } else {
+      this.priceElement.textContent = `${value} синапсов`;
+    }
+  }
+
+  destroy(): void {
+    this.deleteButton.removeEventListener("click", this.handleDelete);
+  }
+
+  getContainer(): HTMLElement {
+    return this.container;
   }
 }

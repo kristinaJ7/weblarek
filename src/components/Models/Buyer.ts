@@ -1,78 +1,134 @@
-//для работы с интерфейсом для данных покупателя
+import { IEvents } from "../base/Events";
 
-// импортируем интерфейс покупателя
-import { IBuyer } from "../../types/index";
-//импортируем способ оплаты
-import { TPayment } from "../../types/index";
+export interface IBuyer {
+  email: string;
+  phone: string;
+  address: string;
+  paymentMethod: TPayment | null;
+}
+
+export type ValidationErrors = Partial<Record<keyof IBuyer, string>>;
+export type TPayment = "card" | "cash";
 
 export class Buyer {
-  //покупатель хранит данные
   private data: IBuyer = {
-    payment: "card", //вид оплаты
-    address: "",
-    phone: "",
     email: "",
+    phone: "",
+    address: "",
+    paymentMethod: null,
   };
+  private errors: ValidationErrors = {};
+  private events: IEvents;
 
-  //МЕТОДЫ:
-
-  // Сохранение данных в модели (отдельные методы для каждого поля)
-  setPayment(payment: TPayment): void {
-    this.data.payment = payment; //поле оплаты
+  constructor(events: IEvents) {
+    this.events = events;
   }
 
-  setEmail(email: string): void {
-    //поле почты
-    this.data.email = email;
+  setData(field: keyof IBuyer, value: string | TPayment): void {
+    if (!this.isValidValueForField(field, value)) {
+      console.warn(`Недопустимое значение для поля "${field}":`, value);
+      return;
+    }
+
+    // Нормализация значений перед сохранением
+    let normalizedValue = value;
+    switch (field) {
+      case "email":
+        normalizedValue = value.trim().toLowerCase();
+        break;
+      case "phone":
+        // Оставляем только цифры
+        normalizedValue = value.replace(/\D/g, "");
+        break;
+      case "address":
+        normalizedValue = value.trim();
+        break;
+      case "paymentMethod":
+        // paymentMethod не нормализуем, оставляем как есть
+        break;
+    }
+
+    (this.data as any)[field] = normalizedValue;
+    console.log("[Buyer.data]", this.data);
+    this.validate();
+    this.emitChange();
   }
 
-  setPhone(phone: string): void {
-    //поле телефона
-    this.data.phone = phone;
-  }
-
-  setAddress(address: string): void {
-    //поле адреса
-    this.data.address = address;
-  }
-
-  // Метод для массовой установки данных
-  setData(data: Partial<IBuyer>): void {
-    Object.assign(this.data, data);
-  }
-
-  // получение всех данных покупателя
   getData(): IBuyer {
     return { ...this.data };
   }
 
-  // очистка данных покупателя
-  clearData(): void {
-    this.data = {
-      payment: "card",
-      email: "",
-      phone: "",
-      address: "",
-    };
+  validate(): ValidationErrors {
+    this.errors = {};
+
+    // Email
+    if (!this.data.email) {
+      this.errors.email = "Email обязателен для заполнения";
+    } else if (!this.isValidEmail(this.data.email)) {
+      this.errors.email = "Некорректный формат email";
+    }
+
+    // Телефон
+    if (!this.data.phone) {
+      this.errors.phone = "Телефон обязателен для заполнения";
+    } else if (!this.isValidPhone(this.data.phone)) {
+      this.errors.phone = "Некорректный формат телефона";
+    }
+
+    // Адрес
+    if (!this.data.address) {
+      this.errors.address = "Адрес обязателен для заполнения";
+    }
+
+    // Способ оплаты
+    if (!this.data.paymentMethod) {
+      this.errors.paymentMethod = "Выберите способ оплаты";
+    }
+
+    return this.errors;
   }
 
-  // Валидация данных методом validate() проверяем коректность данных в объекте data
-  validate(): Record<string, string> {
-    const errors: Record<string, string> = {}; //Создаем пустой объект  который будет содержать сообщения об ошибках для каждого поля
+  isValid(): boolean {
+    return Object.keys(this.errors).length === 0;
+  }
 
-    if (!this.data.payment) {
-      errors.payment = "Выберите вид оплаты"; //Если поле payment(оплаты) не заполнено  добавляется сообщение об ошибке в объект errorr
-    }
-    if (!this.data.email) {
-      errors.email = "Укажите email";
-    }
-    if (!this.data.phone) {
-      errors.phone = "Укажите номер телефона";
-    }
-    if (!this.data.address) {
-      errors.address = "Укажите адрес";
-    }
+  clear(): void {
+    this.data = { email: "", phone: "", address: "", paymentMethod: null };
+    this.errors = {};
+    this.emitChange();
+  }
 
-    return errors; // вернуть массив если есть ошибки при валидации
+  private isValidEmail(email: string): boolean {
+    const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return re.test(email);
+  }
+
+  private isValidPhone(phone: string): boolean {
+    // Проверяем длину цифр после нормализации (уже только цифры)
+    return phone.length >= 10 && phone.length <= 15;
+  }
+
+  private emitChange(): void {
+    this.events.emit("buyer:change", {
+      data: this.data,
+      errors: this.errors,
+      isValid: this.isValid(),
+    });
+  }
+
+  // Метод для проверки соответствия значения полю
+  private isValidValueForField(field: keyof IBuyer, value: unknown): boolean {
+    switch (field) {
+      case "email":
+        return typeof value === "string";
+      case "phone":
+        return typeof value === "string";
+      case "address":
+        return typeof value === "string";
+      case "paymentMethod":
+        return value === null || value === "card" || value === "cash";
+      default:
+        return false;
+    }
   }
 }

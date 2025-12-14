@@ -36,8 +36,22 @@ export class ApiService {
       orderData
     );
 
-    if (!response.success) {
+    // Корректное логирование
+    console.log("HTTP статус:", response.status); // Статус HTTP
+    console.log("Данные ответа:", response.data); // Тело ответа
+    console.log("Полный ответ:", response);
+
+    /*
+   if (!response.success) {
+throw new Error(response.error || "Ошибка отправки заказа");
+}
+ }*/
+    // Проверяем, что ответ содержит id (признак успешного заказа)
+    if (!response.id) {
       throw new Error(response.error || "Ошибка отправки заказа");
     }
+
+    // Если нужно, можно вернуть данные заказа
+    return response; // или ничего, если Promise<void>
   }
 }

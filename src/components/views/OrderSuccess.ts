@@ -44,6 +44,7 @@ export class SuccessOrder extends Component<OrderResult> {
    * Устанавливает итоговую сумму заказа
    * @param value Сумма в синапсах
    */
+
   setTotal(value: number): void {
     this.total = value;
   }
@@ -52,6 +53,7 @@ export class SuccessOrder extends Component<OrderResult> {
    * Обновляет содержимое модалки успеха
    * @param data Частичные данные заказа
    */
+
   render(data?: Partial<OrderResult>): HTMLElement {
     if (data && data.total !== undefined) {
       this.setTotal(data.total);
@@ -62,6 +64,7 @@ export class SuccessOrder extends Component<OrderResult> {
   /**
    * Возвращает корневой элемент компонента
    */
+
   getContainer(): HTMLElement {
     return this.container;
   }

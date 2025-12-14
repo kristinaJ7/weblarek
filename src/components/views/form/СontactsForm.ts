@@ -1,14 +1,15 @@
-//класс для отображения формы для отправки контактов(почта и телефон)
-
 import { ensureElement } from "../../../utils/utils";
 import { IEvents } from "../../base/Events";
-import { OrderForm } from "./MainForm"; // родительский класс
+import { OrderForm } from "./MainForm";
+import { IContactsData } from "../../../types";
 
-// Тип данных формы контактов
-interface IContactsData {
-  email: string;
-  phone: string;
+// Типы для событий
+interface ContactsFieldChangeEvent {
+  field: keyof IContactsData;
+  value: string;
 }
+
+interface ContactsSubmitEvent extends IContactsData {}
 
 export class ContactsForm extends OrderForm<IContactsData> {
   protected emailInput: HTMLInputElement;
@@ -17,7 +18,7 @@ export class ContactsForm extends OrderForm<IContactsData> {
   constructor(protected events: IEvents) {
     super(events, "#contacts", "contacts:submit");
 
-    // Получаем поля ввода из DOM
+    // Инициализация полей
     this.emailInput = ensureElement<HTMLInputElement>(
       'input[name="email"]',
       this.container
@@ -27,29 +28,40 @@ export class ContactsForm extends OrderForm<IContactsData> {
       this.container
     );
 
-    // Настраиваем обработчики событий
+    // Настройка обработчиков событий
     this.initEventListeners();
   }
 
   private initEventListeners(): void {
-    // Слушатель на изменение email
-    this.emailInput.addEventListener("input", () => {
-      this.events.emit("contacts:email:change", {
-        value: this.emailInput.value,
-      });
-      this.handleFormChange();
-    });
+    // Обработчик ввода для полей
+    const handleInput = (
+      field: keyof IContactsData,
+      input: HTMLInputElement
+    ) => {
+      input.addEventListener("input", () => {
+        // Автоматически очищаем ошибки при вводе
+        this.clearErrors();
 
-    // Слушатель на изменение телефона
-    this.phoneInput.addEventListener("input", () => {
-      this.events.emit("contacts:phone:change", {
-        value: this.phoneInput.value,
+        this.events.emit<ContactsFieldChangeEvent>("contacts:field:change", {
+          field,
+          value: input.value.trim(),
+        });
       });
-      this.handleFormChange();
+    };
+
+    handleInput("email", this.emailInput);
+    handleInput("phone", this.phoneInput);
+
+    // Обработчик отправки формы
+    this.container.addEventListener("submit", (event: Event) => {
+      event.preventDefault();
+
+      const formData = this.getFormData();
+      this.events.emit<ContactsSubmitEvent>("contacts:submit", formData);
     });
   }
 
-  // Обязательная реализация: сбор данных формы
+  // Сбор данных из DOM (без валидации)
   protected getFormData(): IContactsData {
     return {
       email: this.emailInput.value.trim(),
@@ -57,64 +69,85 @@ export class ContactsForm extends OrderForm<IContactsData> {
     };
   }
 
-  // Обязательная реализация: валидация данных
-  protected validate(data: IContactsData): string[] {
-    const errors: string[] = [];
+  public showErrors(
+    errors: Partial<Record<keyof IContactsData, string>>
+  ): void {
+    // Всегда очищаем старые ошибки
+    this.clearErrors();
 
-    // Валидация email
-    if (!data.email) {
-    } else if (!this.isValidEmail(data.email)) {
-      errors.push("Некорректный формат email");
+    // Выходим, если ошибок нет
+    if (Object.keys(errors).length === 0) {
+      return;
     }
 
-    // Валидация телефона
-    if (!data.phone) {
-    } else if (!this.isValidPhone(data.phone)) {
-      errors.push("Некорректный формат телефона");
+    Object.entries(errors).forEach(([field, message]) => {
+      const input = this.getInput(field as keyof IContactsData);
+      if (input && message) {
+        const errorEl = this.createErrorElement(message);
+        input.parentNode?.insertBefore(errorEl, input.nextSibling);
+        input.classList.add("error");
+      }
+    });
+  }
+
+  // UI-метод: очистить ошибки
+  public clearErrors(): void {
+    const errorElements = this.container.querySelectorAll(".form-error");
+    errorElements.forEach((el) => el.remove());
+
+    [this.emailInput, this.phoneInput].forEach((input) => {
+      input.classList.remove("error");
+    });
+  }
+
+  // UI-метод: включить/отключить кнопку отправки
+  public setSubmitEnabled(enabled: boolean): void {
+    const submitButton = this.container.querySelector(
+      "button[type='submit']"
+    ) as HTMLButtonElement | null;
+    if (submitButton) {
+      submitButton.disabled = !enabled;
     }
-
-    return errors;
   }
 
-  // Вспомогательные методы валидации
-  private isValidEmail(email: string): boolean {
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    return emailRegex.test(email);
+  // UI-метод: обновить значения полей
+  public updateFields(data: IContactsData): void {
+    this.emailInput.value = data.email;
+    this.phoneInput.value = data.phone;
   }
 
-  private isValidPhone(phone: string): boolean {
-    // Удаляем все нецифры (оставляем только 0-9)
-    const digits = phone.replace(/\D/g, "");
-
-    // Проверяем: начинается с 7 или 8, далее 10 цифр
-    const isValid = /^(7|8)\d{10}$/.test(digits);
-
-    return isValid;
+  // Заглушка для абстрактного метода (валидация делегирована внешнему слою)
+  public validate(): string[] {
+    return [];
   }
 
-  // Общий обработчик изменений формы (дебаунс для оптимизации)
-  private handleFormChange(): void {
-    setTimeout(() => this.validateAndUpdate(), 0);
+  // Получение контейнера формы
+  public getContainer(): HTMLElement {
+    return this.container;
   }
 
-  // Метод для принудительного обновления валидации
-  public forceValidate(): void {
-    this.validateAndUpdate();
+  // Вспомогательные методы
+
+  /**
+   * Получает DOM-элемент поля по имени
+   * @param field Имя поля (email/phone)
+   * @returns HTMLInputElement или null
+   */
+
+  private getInput(field: keyof IContactsData): HTMLInputElement | null {
+    return this.container.querySelector(`input[name="${field}"]`);
   }
 
-  // Переопределяем метод для более точного лога
-  protected validateAndUpdate(): void {
-    const data = this.getFormData();
-    const errors = this.validate(data);
+  /**
+   * Создаёт элемент с сообщением об ошибке
+   * @param message Текст ошибки
+   * @returns HTMLElement с классом form-error
+   */
 
-    if (errors.length === 0) {
-      this.clearErrors();
-      this.setSubmitEnabled(true);
-      // Дополнительно эмиттим событие о валидных данных
-      this.events.emit("contacts:valid", data);
-    } else {
-      this.setErrors(errors.join("\n"));
-      this.setSubmitEnabled(false);
-    }
+  private createErrorElement(message: string): HTMLElement {
+    const el = document.createElement("div");
+    el.className = "form-error";
+    el.textContent = message;
+    return el;
   }
 }

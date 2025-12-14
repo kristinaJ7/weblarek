@@ -7,13 +7,14 @@ interface ModalOptions {
   title?: string;
   closable?: boolean;
   closeOnOverlayClick?: boolean;
-  closeButtonSelector?: string;
 }
 
 export class ModalWindow extends Component<HTMLElement> {
-  protected modalCloseButtonElement: HTMLButtonElement;
-  protected modalContentElement: HTMLElement;
-  private _isOpen = false;
+  public _isOpen = false;
+
+  // Статические элементы — инициализируем в конструкторе
+  private closeButton: HTMLButtonElement;
+  private contentContainer: HTMLElement;
 
   constructor(
     protected events: IEvents,
@@ -23,78 +24,63 @@ export class ModalWindow extends Component<HTMLElement> {
     const container = ensureElement<HTMLElement>("#modal-container");
     super(container);
 
-    this.modalCloseButtonElement = ensureElement<HTMLButtonElement>(
+    // Ищем элементы один раз
+    this.closeButton = ensureElement<HTMLButtonElement>(
       closeSelector,
       this.container
     );
-    this.modalContentElement = ensureElement<HTMLElement>(
+    this.contentContainer = ensureElement<HTMLElement>(
       contentSelector,
       this.container
     );
 
-    this.modalCloseButtonElement.addEventListener("click", () => this.close());
+    // Вешаем обработчики один раз
+    this.closeButton.addEventListener("click", this.close.bind(this));
 
     this.container.addEventListener("click", (event: MouseEvent) => {
-      if (event.target === this.container) this.close();
+      if (event.target === this.container && this._isOpen) {
+        this.close();
+      }
     });
   }
 
   open(content: HTMLElement): this {
-    if (this._isOpen) return this;
+    // Удаляем старый контент и вставляем новый без проверки _isOpen
+    this.contentContainer.replaceChildren(content);
 
-    this._isOpen = true;
-    this.modalContentElement.replaceChildren(content);
+    // Всегда добавляем класс (даже если уже есть)
     this.container.classList.add("modal_active");
     document.body.style.overflow = "hidden";
+
+    this._isOpen = true; // Обновляем флаг
     return this;
   }
 
+  //скрыть и очистить
   close(): void {
     if (!this._isOpen) return;
 
     this._isOpen = false;
     this.container.classList.remove("modal_active");
-    this.modalContentElement.innerHTML = "";
+    this.contentContainer.innerHTML = "";
     document.body.style.overflow = "";
   }
 
   show(options: ModalOptions): void {
-    // 1. Обновляем контент
-    if (options.content) {
-      this.modalContentElement.replaceChildren(options.content);
-    }
+    // Только вставка контента и управление состоянием
+    this.open(options.content);
 
-    // 2. Обновляем заголовок (если передан)
-    if (options.title) {
-      // Предполагаем, что в шаблоне есть элемент .modal__title
-      const titleEl = this.container.querySelector(".modal__title");
-      if (titleEl) {
-        titleEl.textContent = options.title;
-      }
-    }
-
-    // 3. Настраиваем закрываемость
+    // Управление закрываемостью — через классы контейнера
     if (options.closable === false) {
       this.container.classList.add("modal_unclosable");
     } else {
       this.container.classList.remove("modal_unclosable");
     }
 
-    // 4. Настраиваем закрытие по клику на оверлей
     if (options.closeOnOverlayClick === false) {
-      this.container.style.pointerEvents = "none"; // Или другая логика
+      this.container.style.pointerEvents = "none";
+    } else {
+      this.container.style.pointerEvents = "auto";
     }
-
-    // 5. Обновляем селектор кнопки закрытия (если нужно)
-    if (options.closeButtonSelector) {
-      const newButton = ensureElement<HTMLButtonElement>(
-        options.closeButtonSelector,
-        this.container
-      );
-      this.modalCloseButtonElement = newButton;
-    }
-
-    // Открываем модалку
-    this.open(options.content);
   }
 }

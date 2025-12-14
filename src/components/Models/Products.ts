@@ -1,4 +1,3 @@
-
 import { IEvents } from "../base/Events";
 import { IProduct } from "../../types";
 
@@ -14,10 +13,11 @@ export class Products {
   setItems(items: IProduct[]): void {
     this.productsList = items;
     this.events.emit("products:updated", items);
-    if (this.selectedProduct) {
-      this.selectedProduct = null;
-      this.events.emit("product:selected", undefined);
-    }
+
+    this.selectedProduct = null;
+
+    // Эмиттим отдельное событие о сбросе
+    this.events.emit("product:unselected");
   }
 
   getProducts(): IProduct[] {
