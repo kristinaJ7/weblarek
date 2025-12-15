@@ -22,7 +22,7 @@ export class GalleryView {
       const cardElement = cloneTemplate<HTMLElement>(this.cardTemplate);
       
       // Создаём экземпляр карточки с данными и обработчиком
-      const card = new CardCatalog(product, cardElement, this.actions);
+      const card = new CardCatalog(product, cardElement);
       
       // Заполняем поля карточки
       card.title = product.title || 'Нет названия';
