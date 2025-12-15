@@ -16,9 +16,7 @@ export class BuyList {
 
   addItem(item: IProduct): void {
     this.cardListItem.push(item);
-    // Эмит события при добавлении
-    this.events.emit("basket:itemAdded", item);
-    this.events.emit("basket:updated", {
+    this.events.emit("cart:updated", {
       total: this.getTotalPrice(),
       count: this.getItemCount(),
     });
@@ -26,9 +24,7 @@ export class BuyList {
 
   removeItem(id: string): void {
     this.cardListItem = this.cardListItem.filter((item) => item.id !== id);
-    // Эмит события при удалении
-    this.events.emit("basket:itemRemoved", { id });
-    this.events.emit("basket:updated", {
+    this.events.emit("cart:updated", {
       total: this.getTotalPrice(),
       count: this.getItemCount(),
     });
@@ -38,9 +34,7 @@ export class BuyList {
 
   clear(): void {
     this.cardListItem = [];
-    // Эмит события при очистке
-    this.events.emit("basket:cleared");
-    this.events.emit("basket:updated", {
+    this.events.emit("cart:updated", {
       total: 0,
       count: 0,
     });

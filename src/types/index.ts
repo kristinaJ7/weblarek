@@ -18,8 +18,8 @@ export interface IProduct {
   category: string;
   price: number | null;
 }
-
 // Покупатель (единый источник данных)
+
 export interface IBuyer {
   email: string;
   phone: string;
@@ -44,13 +44,6 @@ export interface IOrderData {
 export interface IProductsResponse {
   items: IProduct[];
 }
-
-/*
-// Данные для обновления корзины
-export interface CartUpdateData {
-  count: number;
-}
-*/
 
 export interface IContactsData {
   phone: string;

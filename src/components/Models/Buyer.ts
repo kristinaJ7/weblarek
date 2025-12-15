@@ -1,101 +1,175 @@
 import { IEvents } from "../base/Events";
+import { IBuyer, TPayment } from "../../types";
 
-export interface IBuyer {
-  email: string;
-  phone: string;
-  address: string;
-  paymentMethod: TPayment | null;
-}
-
-export type ValidationErrors = Partial<Record<keyof IBuyer, string>>;
-export type TPayment = "card" | "cash";
+export type ValidationErrors = {
+  email?: string[];
+  phone?: string[];
+  address?: string[];
+  payment?: string[];
+};
 
 export class Buyer {
-  private data: IBuyer = {
-    email: "",
-    phone: "",
-    address: "",
-    paymentMethod: null,
-  };
+  private data: IBuyer;
   private errors: ValidationErrors = {};
   private events: IEvents;
 
   constructor(events: IEvents) {
     this.events = events;
+    this.data = {
+      email: "",
+      phone: "",
+      address: "",
+      payment: "card", // Значение по умолчанию
+    };
   }
 
-  setData(field: keyof IBuyer, value: string | TPayment): void {
-    if (!this.isValidValueForField(field, value)) {
+  setData(field: keyof IBuyer, value: string | TPayment): boolean {
+    if (!this.isValidValue(field, value)) {
       console.warn(`Недопустимое значение для поля "${field}":`, value);
-      return;
+      return false;
     }
 
-    // Нормализация значений перед сохранением
-    let normalizedValue = value;
-    switch (field) {
-      case "email":
-        normalizedValue = value.trim().toLowerCase();
-        break;
-      case "phone":
-        // Оставляем только цифры
-        normalizedValue = value.replace(/\D/g, "");
-        break;
-      case "address":
-        normalizedValue = value.trim();
-        break;
-      case "paymentMethod":
-        // paymentMethod не нормализуем, оставляем как есть
-        break;
-    }
-
+    const normalizedValue = this.normalizeValue(field, value);
     (this.data as any)[field] = normalizedValue;
-    console.log("[Buyer.data]", this.data);
-    this.validate();
+
+    this.validateField(field);
     this.emitChange();
+
+    return true;
   }
 
   getData(): IBuyer {
     return { ...this.data };
   }
 
-  validate(): ValidationErrors {
-    this.errors = {};
+  getErrors(): ValidationErrors {
+    return this.errors;
+  }
 
-    // Email
-    if (!this.data.email) {
-      this.errors.email = "Email обязателен для заполнения";
-    } else if (!this.isValidEmail(this.data.email)) {
-      this.errors.email = "Некорректный формат email";
-    }
+  /**
+   * Возвращает ошибки в формате, совместимом с формами (строки вместо массивов)
+   */
+  getFormattedErrors(): Partial<Record<keyof IBuyer, string>> {
+    const formatted: Partial<Record<keyof IBuyer, string>> = {};
 
-    // Телефон
-    if (!this.data.phone) {
-      this.errors.phone = "Телефон обязателен для заполнения";
-    } else if (!this.isValidPhone(this.data.phone)) {
-      this.errors.phone = "Некорректный формат телефона";
-    }
+    Object.entries(this.errors).forEach(([field, messages]) => {
+      if (messages && messages.length > 0) {
+        formatted[field as keyof IBuyer] = messages.join("; ");
+      }
+    });
 
-    // Адрес
-    if (!this.data.address) {
-      this.errors.address = "Адрес обязателен для заполнения";
-    }
+    return formatted;
+  }
 
-    // Способ оплаты
-    if (!this.data.paymentMethod) {
-      this.errors.paymentMethod = "Выберите способ оплаты";
-    }
+  validateAddressStep(): ValidationErrors {
+    delete this.errors.address;
+    delete this.errors.payment;
+
+    this.validateField("address");
+    this.validateField("payment");
 
     return this.errors;
   }
 
+  validateContactStep(): ValidationErrors {
+    delete this.errors.email;
+    delete this.errors.phone;
+
+    this.validateField("email");
+    this.validateField("phone");
+
+    return this.errors;
+  }
+
+  validateAll(): ValidationErrors {
+    this.errors = {};
+    (Object.keys(this.data) as Array<keyof IBuyer>).forEach((field) => {
+      this.validateField(field);
+    });
+    return this.errors;
+  }
+
   isValid(): boolean {
-    return Object.keys(this.errors).length === 0;
+    return Object.values(this.errors).every(
+      (errors) => !errors || errors.length === 0
+    );
   }
 
   clear(): void {
-    this.data = { email: "", phone: "", address: "", paymentMethod: null };
+    this.data = {
+      email: "",
+      phone: "",
+      address: "",
+      payment: "card",
+    };
     this.errors = {};
     this.emitChange();
+  }
+
+  private normalizeValue(
+    field: keyof IBuyer,
+    value: string | TPayment
+  ): string | TPayment {
+    switch (field) {
+      case "email":
+        return value.trim().toLowerCase();
+      case "phone":
+        return value.replace(/\D/g, "");
+      case "address":
+        return value.trim();
+      default:
+        return value;
+    }
+  }
+
+  private isValidValue(field: keyof IBuyer, value: unknown): boolean {
+    switch (field) {
+      case "payment":
+        return value === "card" || value === "cash";
+      default:
+        return typeof value === "string";
+    }
+  }
+
+  private validateField(field: keyof IBuyer): void {
+    const value = this.data[field];
+    const errors: string[] = [];
+
+    switch (field) {
+      case "email":
+        if (!value) {
+          errors.push("Email обязателен для заполнения");
+        } else if (!this.isValidEmail(value)) {
+          errors.push("Некорректный формат email");
+        }
+        break;
+
+      case "phone":
+        if (!value) {
+          errors.push("Телефон обязателен для заполнения");
+        } else if (!this.isValidPhone(value)) {
+          errors.push("Некорректный формат телефона");
+        }
+        break;
+
+      case "address":
+        if (!value) {
+          errors.push("Адрес обязателен для заполнения");
+        }
+        break;
+
+      case "payment":
+        if (value !== "card" && value !== "cash") {
+          errors.push("Выберите способ оплаты");
+        }
+        break;
+    }
+
+    if (errors.length > 0) {
+      this.errors[field] = errors;
+    } else {
+      delete this.errors[field];
+    }
   }
 
   private isValidEmail(email: string): boolean {
@@ -104,31 +178,14 @@ export class Buyer {
   }
 
   private isValidPhone(phone: string): boolean {
-    // Проверяем длину цифр после нормализации (уже только цифры)
     return phone.length >= 10 && phone.length <= 15;
   }
 
   private emitChange(): void {
     this.events.emit("buyer:change", {
-      data: this.data,
+      data: this.getData(),
       errors: this.errors,
       isValid: this.isValid(),
     });
-  }
-
-  // Метод для проверки соответствия значения полю
-  private isValidValueForField(field: keyof IBuyer, value: unknown): boolean {
-    switch (field) {
-      case "email":
-        return typeof value === "string";
-      case "phone":
-        return typeof value === "string";
-      case "address":
-        return typeof value === "string";
-      case "paymentMethod":
-        return value === null || value === "card" || value === "cash";
-      default:
-        return false;
-    }
   }
 }

@@ -36,32 +36,38 @@ export class CardPreview {
     this.container = container;
     this.actions = actions;
 
-    this.imageElement = ensureElement<HTMLImageElement>(
-      ".card__image",
-      this.container
-    );
-    this.categoryElement = ensureElement<HTMLElement>(
-      ".card__category",
-      this.container
-    );
-    this.titleElement = ensureElement<HTMLElement>(
-      ".card__title",
-      this.container
-    );
-    this.textElement = ensureElement<HTMLElement>(
-      ".card__text",
-      this.container
-    );
-    this.priceElement = ensureElement<HTMLElement>(
-      ".card__price",
-      this.container
-    );
-    this.buttonElement = ensureElement<HTMLButtonElement>(
-      ".card__button",
-      this.container
-    );
+    // Валидация DOM-элементов
+    try {
+      this.imageElement = ensureElement<HTMLImageElement>(
+        ".card__image",
+        this.container
+      );
+      this.categoryElement = ensureElement<HTMLElement>(
+        ".card__category",
+        this.container
+      );
+      this.titleElement = ensureElement<HTMLElement>(
+        ".card__title",
+        this.container
+      );
+      this.textElement = ensureElement<HTMLElement>(
+        ".card__text",
+        this.container
+      );
+      this.priceElement = ensureElement<HTMLElement>(
+        ".card__price",
+        this.container
+      );
+      this.buttonElement = ensureElement<HTMLButtonElement>(
+        ".card__button",
+        this.container
+      );
+    } catch (error) {
+      console.error("Ошибка инициализации CardPreview:", error);
+      throw error;
+    }
 
-    // Подписываемся на клик при инициализации
+    // Слушатель на кнопку
     this.buttonElement.addEventListener("click", this.handleButtonClick);
   }
 
@@ -71,7 +77,7 @@ export class CardPreview {
 
   fillData(product: IProduct): void {
     this.product = product;
-    this.isInCart = false; // По умолчанию товар не в корзине
+    // НЕ перезаписываем isInCart здесь!
 
     this.category = product.category;
     this.title = product.title;
@@ -91,27 +97,15 @@ export class CardPreview {
     if (!this.product) return;
 
     if (this.product.price === null) {
-      // Цена отсутствует — блокируем кнопку
       this.buttonElement.textContent = "Недоступно";
       this.buttonElement.disabled = true;
-      this.buttonElement.removeEventListener("click", this.handleButtonClick);
     } else {
-      // Цена есть — настраиваем кнопку
       if (this.isInCart) {
         this.buttonElement.textContent = "Удалить из корзины";
       } else {
         this.buttonElement.textContent = "Купить";
       }
       this.buttonElement.disabled = false;
-
-      // Восстанавливаем обработчик клика, если его нет
-      const hasListener = this.buttonElement.addEventListener
-        ? this.buttonElement.addEventListener("click", this.handleButtonClick)
-        : false;
-
-      if (!hasListener) {
-        this.buttonElement.addEventListener("click", this.handleButtonClick);
-      }
     }
   }
 
@@ -127,22 +121,25 @@ export class CardPreview {
   }
 
   set title(value: string) {
-    this.titleElement.textContent = value;
+    this.titleElement.textContent = value || "Нет названия";
   }
 
   set text(value: string) {
-    this.textElement.textContent = value;
+    this.textElement.textContent = value || "";
   }
 
   set image(value: string) {
-    const cleanValue = value.trim();
+    const cleanValue = value?.trim() || "";
     const nameWithoutExtension = cleanValue.replace(/\.\w+$/, "");
     const fullUrl = `${CDN_URL}/${nameWithoutExtension}.png`;
+
     this.imageElement.src = fullUrl;
-    this.imageElement.alt =
-      this.titleElement.textContent || "Изображение товара";
+    this.imageElement.alt = this.product?.title || "Изображение товара";
+
     this.imageElement.onerror = () => {
       console.error("Не удалось загрузить изображение:", fullUrl);
+      // Запасной вариант
+      this.imageElement.src = "/assets/placeholder.png";
     };
   }
 

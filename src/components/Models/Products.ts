@@ -15,9 +15,6 @@ export class Products {
     this.events.emit("products:updated", items);
 
     this.selectedProduct = null;
-
-    // Эмиттим отдельное событие о сбросе
-    this.events.emit("product:unselected");
   }
 
   getProducts(): IProduct[] {
@@ -28,8 +25,6 @@ export class Products {
     const product = this.productsList.find((p) => p.id === id) || null;
     if (product) {
       this.events.emit("product:found", product);
-    } else {
-      this.events.emit("product:notFound", { id });
     }
     return product;
   }

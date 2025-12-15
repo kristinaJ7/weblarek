@@ -14,9 +14,13 @@ interface ContactsSubmitEvent extends IContactsData {}
 export class ContactsForm extends OrderForm<IContactsData> {
   protected emailInput: HTMLInputElement;
   protected phoneInput: HTMLInputElement;
+  private _container: HTMLElement;
 
   constructor(protected events: IEvents) {
     super(events, "#contacts", "contacts:submit");
+
+    // Сохраняем контейнер сразу
+    this._container = this.container;
 
     // Инициализация полей
     this.emailInput = ensureElement<HTMLInputElement>(
@@ -121,9 +125,15 @@ export class ContactsForm extends OrderForm<IContactsData> {
     return [];
   }
 
-  // Получение контейнера формы
-  public getContainer(): HTMLElement {
-    return this.container;
+  /*// Получение контейнера формы
+getContainer(): HTMLElement {
+return this.container;
+}*/
+  getContainer(): HTMLElement {
+    if (!this._container) {
+      throw new Error("ContactsForm: контейнер не инициализирован!");
+    }
+    return this._container;
   }
 
   // Вспомогательные методы
