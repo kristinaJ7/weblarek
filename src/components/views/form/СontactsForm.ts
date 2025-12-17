@@ -125,10 +125,11 @@ export class ContactsForm extends OrderForm<IContactsData> {
     return [];
   }
 
-  /*// Получение контейнера формы
+  /*
 getContainer(): HTMLElement {
 return this.container;
 }*/
+
   getContainer(): HTMLElement {
     if (!this._container) {
       throw new Error("ContactsForm: контейнер не инициализирован!");

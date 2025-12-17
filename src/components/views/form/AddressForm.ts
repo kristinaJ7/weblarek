@@ -35,6 +35,7 @@ export class FormAddress extends OrderForm<IAddressData> {
 
   private initListeners(): void {
     this.container.addEventListener("submit", (e) => {
+      console.log("[FormAddress] Submit пойман!"); 
       e.preventDefault();
       this.events.emit("order:address:submit");
     });

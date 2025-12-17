@@ -29,9 +29,8 @@ export class BuyList {
       count: this.getItemCount(),
     });
     // Дополнительно эмитим cart:updated для совместимости
-    this.events.emit("cart:updated");
+    //this.events.emit("cart:updated");
   }
-
   clear(): void {
     this.cardListItem = [];
     this.events.emit("cart:updated", {
@@ -39,6 +38,7 @@ export class BuyList {
       count: 0,
     });
   }
+
   getTotalPrice(): number {
     return this.cardListItem.reduce(
       (total, item) => total + (item.price ?? 0),

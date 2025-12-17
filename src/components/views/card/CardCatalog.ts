@@ -93,6 +93,7 @@ export class CardCatalog {
   }
 
   /** Устанавливает изображение товара */
+
   set image(value: string) {
     const cleanName = value.trim().replace(/\.\w+$/, "");
     const fullUrl = `${CDN_URL}/${cleanName}.png`;

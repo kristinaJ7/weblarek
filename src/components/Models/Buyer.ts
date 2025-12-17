@@ -1,17 +1,10 @@
 import { IEvents } from "../base/Events";
 import { IBuyer, TPayment } from "../../types";
 
-export type ValidationErrors = {
-  email?: string[];
-  phone?: string[];
-  address?: string[];
-  payment?: string[];
-};
-
 export class Buyer {
   private data: IBuyer;
-  private errors: ValidationErrors = {};
   private events: IEvents;
+  private isDirty = false;
 
   constructor(events: IEvents) {
     this.events = events;
@@ -19,7 +12,7 @@ export class Buyer {
       email: "",
       phone: "",
       address: "",
-      payment: "card", // Значение по умолчанию
+      payment: "card",
     };
   }
 
@@ -32,9 +25,10 @@ export class Buyer {
     const normalizedValue = this.normalizeValue(field, value);
     (this.data as any)[field] = normalizedValue;
 
-    this.validateField(field);
-    this.emitChange();
+    this.isDirty = true; //  отмечаем, что данные менялись
 
+    // Эмиссия события сразу после изменения данных
+    this.emitOrderChanged();
     return true;
   }
 
@@ -42,57 +36,28 @@ export class Buyer {
     return { ...this.data };
   }
 
-  getErrors(): ValidationErrors {
-    return this.errors;
-  }
+  // Единый метод валидации
+  validate(): Record<string, string> {
+    const errors: Record<string, string> = {};
 
-  /**
-   * Возвращает ошибки в формате, совместимом с формами (строки вместо массивов)
-   */
-  getFormattedErrors(): Partial<Record<keyof IBuyer, string>> {
-    const formatted: Partial<Record<keyof IBuyer, string>> = {};
+    if (!this.data.payment) {
+      errors.payment = "Выберите вид оплаты";
+    }
+    if (!this.data.email) {
+      errors.email = "Укажите email";
+    } else if (!this.isValidEmail(this.data.email)) {
+      errors.email = "Некорректный формат email";
+    }
+    if (!this.data.phone) {
+      errors.phone = "Укажите номер телефона";
+    } else if (!this.isValidPhone(this.data.phone)) {
+      errors.phone = "Некорректный формат телефона";
+    }
+    if (!this.data.address) {
+      errors.address = "Укажите адрес";
+    }
 
-    Object.entries(this.errors).forEach(([field, messages]) => {
-      if (messages && messages.length > 0) {
-        formatted[field as keyof IBuyer] = messages.join("; ");
-      }
-    });
-
-    return formatted;
-  }
-
-  validateAddressStep(): ValidationErrors {
-    delete this.errors.address;
-    delete this.errors.payment;
-
-    this.validateField("address");
-    this.validateField("payment");
-
-    return this.errors;
-  }
-
-  validateContactStep(): ValidationErrors {
-    delete this.errors.email;
-    delete this.errors.phone;
-
-    this.validateField("email");
-    this.validateField("phone");
-
-    return this.errors;
-  }
-
-  validateAll(): ValidationErrors {
-    this.errors = {};
-    (Object.keys(this.data) as Array<keyof IBuyer>).forEach((field) => {
-      this.validateField(field);
-    });
-    return this.errors;
-  }
-
-  isValid(): boolean {
-    return Object.values(this.errors).every(
-      (errors) => !errors || errors.length === 0
-    );
+    return errors;
   }
 
   clear(): void {
@@ -102,8 +67,8 @@ export class Buyer {
       address: "",
       payment: "card",
     };
-    this.errors = {};
-    this.emitChange();
+    this.isDirty = false; // сбрасываем флаг
+    this.emitOrderChanged(); // Эмиссия события при очистке
   }
 
   private normalizeValue(
@@ -131,47 +96,6 @@ export class Buyer {
     }
   }
 
-  private validateField(field: keyof IBuyer): void {
-    const value = this.data[field];
-    const errors: string[] = [];
-
-    switch (field) {
-      case "email":
-        if (!value) {
-          errors.push("Email обязателен для заполнения");
-        } else if (!this.isValidEmail(value)) {
-          errors.push("Некорректный формат email");
-        }
-        break;
-
-      case "phone":
-        if (!value) {
-          errors.push("Телефон обязателен для заполнения");
-        } else if (!this.isValidPhone(value)) {
-          errors.push("Некорректный формат телефона");
-        }
-        break;
-
-      case "address":
-        if (!value) {
-          errors.push("Адрес обязателен для заполнения");
-        }
-        break;
-
-      case "payment":
-        if (value !== "card" && value !== "cash") {
-          errors.push("Выберите способ оплаты");
-        }
-        break;
-    }
-
-    if (errors.length > 0) {
-      this.errors[field] = errors;
-    } else {
-      delete this.errors[field];
-    }
-  }
-
   private isValidEmail(email: string): boolean {
     const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     return re.test(email);
@@ -180,12 +104,23 @@ export class Buyer {
   private isValidPhone(phone: string): boolean {
     return phone.length >= 10 && phone.length <= 15;
   }
+  private emitOrderChanged(): void {
+    const data = this.getData();
 
-  private emitChange(): void {
-    this.events.emit("buyer:change", {
-      data: this.getData(),
-      errors: this.errors,
-      isValid: this.isValid(),
+    // Если данных ещё не меняли, не показываем ошибки
+    const errors = this.isDirty ? this.validate() : {};
+
+    const isValid = Object.keys(errors).length === 0;
+
+    this.events.emit("order:changed", {
+      data,
+      errors,
+      isValid,
     });
+  }
+
+  isValid(): boolean {
+    const errors = this.validate();
+    return Object.keys(errors).length === 0;
   }
 }
