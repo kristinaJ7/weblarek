@@ -178,36 +178,55 @@ events.on("order:open", () => {
   });
 });
 
-events.on(
-  "order:changed",
-  ({
+export interface OrderChangedEvent {
+  data: IBuyer;
+  errors: Record<string, string>;
+  isValid: boolean;
+}
+
+events.on("order:changed", (payload: OrderChangedEvent) => {
+  const { data, errors, isValid } = payload;
+
+  console.log("[order:changed] Данные:", {
+    email: data.email,
+    phone: data.phone,
+  });
+  console.log(
+    "[order:changed] Ошибки:",
+    Object.fromEntries(Object.entries(errors).filter(([_, v]) => v))
+  );
+  console.log("[order:changed] isValid:", isValid);
+
+  // Форма адреса (без изменений)
+  addressForm.showErrors({
+    payment: errors.payment,
+    address: errors.address,
+  });
+  addressForm.setSubmitEnabled(true);
+
+  // Форма контактов
+  contactsForm.showErrors({
+    email: errors.email,
+    phone: errors.phone,
+  });
+
+  // КРИТИЧЕСКАЯ ПРОВЕРКА: все ли обязательные поля ЗАПОЛНЕНЫ?
+  const areAllRequiredFieldsFilled =
+    !!data.email?.trim() &&
+    !!data.phone?.trim() &&
+    !!data.address?.trim() &&
+    !!data.payment;
+  const canSubmit = isValid && areAllRequiredFieldsFilled;
+
+  contactsForm.setSubmitEnabled(canSubmit);
+
+  console.debug("[order:changed]", {
+    isValid,
+    areAllRequiredFieldsFilled,
+    canSubmit,
     errors,
-  }: {
-    data: IBuyer;
-    errors: Record<string, string>;
-    isValid: boolean;
-  }) => {
-    const data = buyer.getData();
-
-    // Фильтруем ошибки: только для непустых полей
-    const filtered = Object.fromEntries(
-      Object.entries(errors).filter(([key]) => data[key as keyof IBuyer] !== "")
-    );
-
-    // Обновляем формы
-    addressForm.showErrors({
-      payment: filtered.payment,
-      address: filtered.address,
-    });
-    contactsForm.showErrors({ email: filtered.email, phone: filtered.phone });
-
-    // Управляем кнопками
-    addressForm.setSubmitEnabled(!filtered.payment && !filtered.address);
-    contactsForm.setSubmitEnabled(!filtered.email && !filtered.phone);
-
-    console.debug("[order:changed]", { filtered });
-  }
-);
+  });
+});
 
 // Форма адреса
 events.on(
@@ -235,12 +254,6 @@ events.on(
 events.on("order:address:submit", () => {
   console.log("[order:address:submit] Обработчик вызван!");
   console.log("[order:address:submit]", { data: buyer.getData() });
-  events.emit("order:address:submitted");
-});
-
-// 5. Переход к форме контактов
-events.on("order:address:submitted", () => {
-  console.log("[order:address:submitted] Событие поймано!");
   modal.show({
     content: contactsForm.getContainer(),
   });
@@ -271,6 +284,11 @@ events.on("contacts:submit", () => {
     .then(() => {
       buyListModel.clear(); // В этом методе теперь эмитится cart:updated
       buyer.clear();
+
+      // Явно сбрасываем UI форм
+      contactsForm.resetUI();
+      addressForm.resetUI();
+
       successView.render({ total: order.total });
       modal.show({ content: successView.getContainer() });
     })
@@ -291,7 +309,5 @@ apiService
   .then((products) => {
     console.log("Получены товары:", products);
     productsModel.setItems(products);
-    /* renderProducts();
-    events.emit("products:loaded", products);*/
   })
   .catch((error) => events.emit("api:error", error));

@@ -1,10 +1,11 @@
 import { IEvents } from "../base/Events";
 import { IBuyer, TPayment } from "../../types";
+import { OrderChangedEvent } from "../../main";
 
 export class Buyer {
   private data: IBuyer;
   private events: IEvents;
-  private isDirty = false;
+  private touchedFields: Set<keyof IBuyer> = new Set();
 
   constructor(events: IEvents) {
     this.events = events;
@@ -25,9 +26,8 @@ export class Buyer {
     const normalizedValue = this.normalizeValue(field, value);
     (this.data as any)[field] = normalizedValue;
 
-    this.isDirty = true; //  отмечаем, что данные менялись
+    this.touch(field);
 
-    // Эмиссия события сразу после изменения данных
     this.emitOrderChanged();
     return true;
   }
@@ -36,25 +36,37 @@ export class Buyer {
     return { ...this.data };
   }
 
-  // Единый метод валидации
   validate(): Record<string, string> {
     const errors: Record<string, string> = {};
 
-    if (!this.data.payment) {
-      errors.payment = "Выберите вид оплаты";
+    // Email: ошибка, если тронут И пуст/некорректен
+    if (this.isTouched("email")) {
+      if (!this.data.email || this.data.email.trim().length === 0) {
+        errors.email = "Укажите email";
+      } else if (!this.isValidEmail(this.data.email)) {
+        errors.email = "Некорректный формат email";
+      }
     }
-    if (!this.data.email) {
-      errors.email = "Укажите email";
-    } else if (!this.isValidEmail(this.data.email)) {
-      errors.email = "Некорректный формат email";
+
+    // Телефон: аналогично
+    if (this.isTouched("phone")) {
+      if (!this.data.phone || this.data.phone.trim().length === 0) {
+        errors.phone = "Укажите номер телефона";
+      } else if (!this.isValidPhone(this.data.phone)) {
+        errors.phone = "Некорректный формат телефона";
+      }
     }
-    if (!this.data.phone) {
-      errors.phone = "Укажите номер телефона";
-    } else if (!this.isValidPhone(this.data.phone)) {
-      errors.phone = "Некорректный формат телефона";
-    }
-    if (!this.data.address) {
+
+    // Адрес и оплата — аналогично (если они обязательны)
+    if (
+      this.isTouched("address") &&
+      (!this.data.address || this.data.address.trim().length === 0)
+    ) {
       errors.address = "Укажите адрес";
+    }
+
+    if (this.isTouched("payment") && !this.data.payment) {
+      errors.payment = "Выберите вид оплаты";
     }
 
     return errors;
@@ -67,8 +79,8 @@ export class Buyer {
       address: "",
       payment: "card",
     };
-    this.isDirty = false; // сбрасываем флаг
-    this.emitOrderChanged(); // Эмиссия события при очистке
+    this.resetTouched();
+    this.emitOrderChanged();
   }
 
   private normalizeValue(
@@ -104,23 +116,34 @@ export class Buyer {
   private isValidPhone(phone: string): boolean {
     return phone.length >= 10 && phone.length <= 15;
   }
+
   private emitOrderChanged(): void {
     const data = this.getData();
-
-    // Если данных ещё не меняли, не показываем ошибки
-    const errors = this.isDirty ? this.validate() : {};
-
+    const errors = this.validate();
     const isValid = Object.keys(errors).length === 0;
 
     this.events.emit("order:changed", {
       data,
       errors,
       isValid,
-    });
+    } as OrderChangedEvent);
   }
 
   isValid(): boolean {
     const errors = this.validate();
     return Object.keys(errors).length === 0;
+  }
+
+  // Методы для управления "тронутыми" полями
+  touch(field: keyof IBuyer): void {
+    this.touchedFields.add(field);
+  }
+
+  isTouched(field: keyof IBuyer): boolean {
+    return this.touchedFields.has(field);
+  }
+
+  resetTouched(): void {
+    this.touchedFields = new Set();
   }
 }

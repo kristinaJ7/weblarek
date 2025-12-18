@@ -161,4 +161,10 @@ return this.container;
     el.textContent = message;
     return el;
   }
+
+  resetUI(): void {
+    this.emailInput.value = "";
+    this.phoneInput.value = "";
+    this.clearErrors();
+  }
 }
