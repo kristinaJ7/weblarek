@@ -13,7 +13,8 @@ export class Buyer {
       email: "",
       phone: "",
       address: "",
-      payment: "card",
+    // payment: "card",
+       payment: null,
     };
   }
 

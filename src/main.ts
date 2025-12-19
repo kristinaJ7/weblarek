@@ -183,6 +183,10 @@ export interface OrderChangedEvent {
   errors: Record<string, string>;
   isValid: boolean;
 }
+interface IAddressData {
+  paymentMethod: TPayment | null;
+  address: string;
+}
 
 events.on("order:changed", (payload: OrderChangedEvent) => {
   const { data, errors, isValid } = payload;
@@ -197,27 +201,38 @@ events.on("order:changed", (payload: OrderChangedEvent) => {
   );
   console.log("[order:changed] isValid:", isValid);
 
-  // Форма адреса (без изменений)
+  // Преобразуем данные для формы адреса
+  const addressData: IAddressData = {
+    paymentMethod: data.payment,
+    address: data.address,
+  };
+
+  // 1. Синхронизируем UI
+  addressForm.updateUI(addressData, errors);
+
+  // 2. Обновляем сообщения об ошибках
   addressForm.showErrors({
     payment: errors.payment,
     address: errors.address,
   });
-  addressForm.setSubmitEnabled(true);
 
-  // Форма контактов
   contactsForm.showErrors({
     email: errors.email,
     phone: errors.phone,
   });
 
-  // КРИТИЧЕСКАЯ ПРОВЕРКА: все ли обязательные поля ЗАПОЛНЕНЫ?
+  // 3. Обновляем состояние кнопок
+  const isAddressValid = isValid && !!data.address?.trim() && !!data.payment;
+
+  addressForm.setSubmitEnabled(isAddressValid);
+
   const areAllRequiredFieldsFilled =
     !!data.email?.trim() &&
     !!data.phone?.trim() &&
     !!data.address?.trim() &&
     !!data.payment;
-  const canSubmit = isValid && areAllRequiredFieldsFilled;
 
+  const canSubmit = isValid && areAllRequiredFieldsFilled;
   contactsForm.setSubmitEnabled(canSubmit);
 
   console.debug("[order:changed]", {
@@ -270,6 +285,13 @@ events.on("contacts:submit", () => {
   }
 
   const buyerData = buyer.getData();
+
+  // Явная проверка: payment должен быть выбран
+  if (buyerData.payment === null) {
+    console.error("Способ оплаты не выбран!");
+    return; // или показать уведомление пользователю
+  }
+
   const order: IOrderData = {
     email: buyerData.email,
     phone: buyerData.phone,

@@ -24,7 +24,7 @@ export interface IBuyer {
   email: string;
   phone: string;
   address: string;
-  payment: TPayment;
+  payment: TPayment | null; 
 }
 
 export type TPayment = "card" | "cash";

@@ -60,19 +60,22 @@ export class FormAddress extends OrderForm<IAddressData> {
     data: IAddressData,
     errors: Partial<Record<keyof IBuyer, string>>
   ): void {
-    this.setPaymentMethod(data.paymentMethod);
+    this.setPaymentMethod(data.paymentMethod); // Всегда вызываем!
     this.setAddress(data.address);
     this.showErrors(errors);
   }
 
   private setPaymentMethod(method: TPayment | null): void {
     this.paymentButtons.forEach((btn) => {
-      btn.classList.toggle("button_alt-active", btn.name === method);
+      const isActive = method !== null && btn.name === method;
+      btn.classList.toggle("button_alt-active", isActive);
     });
   }
 
-  private setAddress(value: string): void {
-    if (this.addressInput) this.addressInput.value = value;
+  private setAddress(value: string | null | undefined): void {
+    if (this.addressInput) {
+      this.addressInput.value = value ?? "";
+    }
   }
 
   showErrors(errors: Partial<Record<keyof IBuyer, string>>): void {
@@ -112,17 +115,10 @@ export class FormAddress extends OrderForm<IAddressData> {
   }
 
   resetUI(): void {
-    // Очищаем поле адреса
-    if (this.addressInput) {
-      this.addressInput.value = "";
-    }
-
-    // Снимаем выделение с кнопок оплаты
-    this.paymentButtons.forEach((btn) => {
-      btn.classList.remove("button_alt-active");
-    });
-
-    // Удаляем ошибки
+    if (this.addressInput) this.addressInput.value = "";
+    this.paymentButtons.forEach((btn) =>
+      btn.classList.remove("button_alt-active")
+    );
     this.clearErrors();
   }
 }
