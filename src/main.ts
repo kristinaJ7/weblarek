@@ -129,6 +129,7 @@ events.on("product:selected", (selectedProduct: IProduct) => {
   });
 });
 
+
 function createBasketItemElements(items: IProduct[]): HTMLElement[] {
   return items.map((item, index) => {
     // используем уже найденный шаблон
