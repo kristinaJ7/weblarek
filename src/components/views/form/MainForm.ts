@@ -1,5 +1,4 @@
 
-
 import { cloneTemplate, ensureElement, ensureAllElements } from "../../../utils/utils";
 import { Component } from "../../base/Component";
 import { IEvents } from "../../base/Events";
@@ -43,12 +42,3 @@ export abstract class OrderForm<T extends object> extends Component<HTMLElement>
     return this.container;
   }
 }
-
-
-
-
-
-
-
-
-
