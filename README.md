@@ -2,8 +2,13 @@
 <img width="7383" height="13206" alt="localhost_5173_ (1)" src="https://github.com/user-attachments/assets/e1b0abf4-0ca4-4474-a808-2561ffa6dfce" />
 <img width="7383" height="5547" alt="localhost_5173_ (2)" src="https://github.com/user-attachments/assets/9abade8e-a961-4cc9-bb76-204f9d369e44" />
 
- githubLink: 'https://github.com/kristinaJ7/weblarek.git',
-    demoLink: 'https://kristinaj7.github.io/weblarek/',
+- **Source Code:** 'https://github.com/kristinaJ7/weblarek.git',
+- **Live Demo:**  'https://kristinaj7.github.io/weblarek/',
+
+
+
+
+    
 Стек: HTML, SCSS, TS, Vite
 
 Структура проекта:
